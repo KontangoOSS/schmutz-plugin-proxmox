@@ -1,0 +1,37 @@
+---
+# Harden role defaults
+
+# SSH
+harden_ssh_port: 22
+harden_ssh_permit_root: "prohibit-password"
+harden_ssh_password_auth: false
+harden_ssh_max_auth_tries: 3
+harden_ssh_allowed_users: []
+
+# Firewall (ufw)
+harden_firewall_enabled: true
+harden_firewall_default_incoming: deny
+harden_firewall_default_outgoing: allow
+harden_firewall_allowed_tcp:
+  - "{{ harden_ssh_port }}"
+harden_firewall_allowed_udp: []
+
+# Fail2ban
+harden_fail2ban_enabled: true
+harden_fail2ban_maxretry: 5
+harden_fail2ban_bantime: 3600
+harden_fail2ban_findtime: 600
+
+# Kernel hardening
+harden_sysctl:
+  net.ipv4.conf.all.rp_filter: 1
+  net.ipv4.conf.default.rp_filter: 1
+  net.ipv4.icmp_echo_ignore_broadcasts: 1
+  net.ipv4.conf.all.accept_redirects: 0
+  net.ipv4.conf.all.send_redirects: 0
+  net.ipv4.conf.all.accept_source_route: 0
+  net.ipv4.tcp_syncookies: 1
+  kernel.randomize_va_space: 2
+
+# Automatic security updates
+harden_auto_updates: true

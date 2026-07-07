@@ -1,0 +1,46 @@
+---
+- name: Create users
+  ansible.builtin.user:
+    name: "{{ item.name }}"
+    groups: "{{ item.groups | default([]) }}"
+    append: yes
+    shell: "{{ item.shell | default('/bin/bash') }}"
+    system: "{{ item.system | default(false) }}"
+    create_home: "{{ item.create_home | default(true) }}"
+    state: present
+  loop: "{{ users }}"
+
+- name: Set authorized SSH keys
+  ansible.posix.authorized_key:
+    user: "{{ item.name }}"
+    key: "{{ item.ssh_keys | join('\n') }}"
+    exclusive: "{{ item.ssh_keys_exclusive | default(false) }}"
+  loop: "{{ users }}"
+  when: item.ssh_keys is defined and item.ssh_keys | length > 0
+
+- name: Configure passwordless sudo
+  ansible.builtin.copy:
+    content: "{{ item.name }} ALL=(ALL) NOPASSWD:ALL\n"
+    dest: "/etc/sudoers.d/{{ item.name }}"
+    mode: "0440"
+    validate: "visudo -cf %s"
+  loop: "{{ users }}"
+  when: item.sudo_nopasswd | default(false)
+
+- name: Remove users
+  ansible.builtin.user:
+    name: "{{ item }}"
+    state: absent
+    remove: yes
+  loop: "{{ user_setup_remove_users }}"
+
+- name: Set password policy defaults
+  ansible.builtin.lineinfile:
+    path: /etc/login.defs
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+  loop:
+    - { regexp: '^PASS_MAX_DAYS', line: "PASS_MAX_DAYS\t{{ user_setup_password_max_days }}" }
+    - { regexp: '^PASS_MIN_DAYS', line: "PASS_MIN_DAYS\t{{ user_setup_password_min_days }}" }
+    - { regexp: '^PASS_WARN_AGE', line: "PASS_WARN_AGE\t{{ user_setup_password_warn_days }}" }
+  when: ansible_os_family == "Debian"

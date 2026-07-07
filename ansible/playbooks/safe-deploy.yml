@@ -1,0 +1,83 @@
+---
+# Workflow: Safe Deploy (snapshot, deploy, rollback on failure)
+# Takes a snapshot before deployment. If deployment fails, automatically rolls back.
+#
+# Usage:
+#   ansible-playbook playbooks/safe-deploy.yml \
+#     -e proxmox_api_url=https://pve:8006 \
+#     -e proxmox_api_token=root@pam!ci=secret \
+#     -e proxmox_node=pve \
+#     -e vmid=200 \
+#     -e app_name=myapp \
+#     -e app_deploy_method=docker-compose \
+#     -e app_compose_file=./docker-compose.yml
+
+- name: Safe deploy with snapshot rollback
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    proxmox_api_url: "{{ lookup('env', 'PROXMOX_API_URL') }}"
+    proxmox_api_token: "{{ lookup('env', 'PROXMOX_API_TOKEN') }}"
+    proxmox_node: "{{ lookup('env', 'PROXMOX_NODE') | default('pve', true) }}"
+    vmid: ""
+    snapshot_name: "pre-deploy-{{ ansible_date_time.epoch | default(lookup('pipe', 'date +%s')) }}"
+
+  tasks:
+    - name: Create pre-deploy snapshot
+      proxmox_snapshot:
+        api_url: "{{ proxmox_api_url }}"
+        api_token: "{{ proxmox_api_token }}"
+        node: "{{ proxmox_node }}"
+        vmid: "{{ vmid }}"
+        snapshot_name: "{{ snapshot_name }}"
+        description: "Pre-deploy snapshot"
+        state: present
+      register: snapshot
+
+    - name: Store snapshot name for rollback
+      ansible.builtin.set_fact:
+        rollback_snapshot: "{{ snapshot.snapshot_name }}"
+
+- name: Deploy application to target
+  hosts: "{{ target_hosts | default('all') }}"
+  become: true
+  gather_facts: true
+
+  roles:
+    - role: app_deploy
+
+  rescue:
+    - name: Deployment failed — triggering rollback
+      ansible.builtin.set_fact:
+        deploy_failed: true
+
+- name: Rollback on failure
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    proxmox_api_url: "{{ lookup('env', 'PROXMOX_API_URL') }}"
+    proxmox_api_token: "{{ lookup('env', 'PROXMOX_API_TOKEN') }}"
+    proxmox_node: "{{ lookup('env', 'PROXMOX_NODE') | default('pve', true) }}"
+
+  tasks:
+    - name: Rollback to pre-deploy snapshot
+      proxmox_snapshot:
+        api_url: "{{ proxmox_api_url }}"
+        api_token: "{{ proxmox_api_token }}"
+        node: "{{ proxmox_node }}"
+        vmid: "{{ vmid }}"
+        snapshot_name: "{{ rollback_snapshot }}"
+        state: rollback
+      when: deploy_failed | default(false)
+
+    - name: Report rollback
+      ansible.builtin.debug:
+        msg: "Deployment failed. Rolled back to snapshot '{{ rollback_snapshot }}'"
+      when: deploy_failed | default(false)
+
+    - name: Report success
+      ansible.builtin.debug:
+        msg: "Deployment completed successfully. Snapshot '{{ rollback_snapshot }}' retained for safety."
+      when: not (deploy_failed | default(false))

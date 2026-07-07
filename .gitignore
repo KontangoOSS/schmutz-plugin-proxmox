@@ -1,0 +1,15 @@
+# Secrets & local env — never commit
+.env
+.env.*
+*.secret
+.secrets.env
+*.key
+*.pem
+
+# Plugin runtime output files
+output.json
+
+# Editor / OS cruft
+*.swp
+*~
+.DS_Store

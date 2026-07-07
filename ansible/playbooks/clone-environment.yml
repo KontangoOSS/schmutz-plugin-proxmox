@@ -1,0 +1,92 @@
+---
+# Workflow: Clone Environment
+# Clones an existing VM/CT to create a staging/testing copy.
+# Optionally applies configuration roles to the clone.
+#
+# Usage:
+#   ansible-playbook playbooks/clone-environment.yml \
+#     -e proxmox_api_url=https://pve:8006 \
+#     -e proxmox_api_token=root@pam!ci=secret \
+#     -e proxmox_node=pve \
+#     -e source_vmid=200 \
+#     -e clone_name=staging-webserver
+
+- name: Clone environment
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    proxmox_api_url: "{{ lookup('env', 'PROXMOX_API_URL') }}"
+    proxmox_api_token: "{{ lookup('env', 'PROXMOX_API_TOKEN') }}"
+    proxmox_node: "{{ lookup('env', 'PROXMOX_NODE') | default('pve', true) }}"
+    source_vmid: ""
+    clone_name: ""
+    clone_vmid: ""
+    target_node: ""
+    target_storage: ""
+    full_clone: true
+    start_clone: true
+    configure_roles: []
+
+  tasks:
+    - name: Validate required variables
+      ansible.builtin.assert:
+        that:
+          - source_vmid != ""
+        fail_msg: "source_vmid is required"
+
+    - name: Clone the guest
+      proxmox_clone:
+        api_url: "{{ proxmox_api_url }}"
+        api_token: "{{ proxmox_api_token }}"
+        node: "{{ proxmox_node }}"
+        vmid: "{{ source_vmid }}"
+        newid: "{{ clone_vmid | default(omit, true) }}"
+        name: "{{ clone_name | default(omit, true) }}"
+        target_node: "{{ target_node | default(omit, true) }}"
+        storage: "{{ target_storage | default(omit, true) }}"
+        full: "{{ full_clone }}"
+        timeout: 300
+      register: clone_result
+
+    - name: Start the clone
+      proxmox_lxc:
+        api_url: "{{ proxmox_api_url }}"
+        api_token: "{{ proxmox_api_token }}"
+        node: "{{ target_node | default(proxmox_node) }}"
+        vmid: "{{ clone_result.newid }}"
+        state: started
+      when: start_clone | bool
+
+    - name: Report clone result
+      ansible.builtin.debug:
+        msg: "Cloned VMID {{ source_vmid }} -> {{ clone_result.newid }}{{ ' (' + clone_name + ')' if clone_name else '' }}"
+
+    - name: Wait for clone to be reachable
+      ansible.builtin.wait_for:
+        host: "{{ clone_name }}"
+        port: 22
+        delay: 10
+        timeout: 120
+      when: start_clone | bool and clone_name != "" and configure_roles | length > 0
+
+    - name: Add clone to runtime inventory
+      ansible.builtin.add_host:
+        name: "{{ clone_name | default('clone-' + clone_result.newid | string) }}"
+        groups: cloned
+        proxmox_vmid: "{{ clone_result.newid }}"
+      when: configure_roles | length > 0
+
+- name: Configure cloned host
+  hosts: cloned
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: Apply configuration roles
+      ansible.builtin.include_role:
+        name: "{{ role_item }}"
+      loop: "{{ hostvars['localhost']['configure_roles'] }}"
+      loop_control:
+        loop_var: role_item
+      when: hostvars['localhost']['configure_roles'] | length > 0

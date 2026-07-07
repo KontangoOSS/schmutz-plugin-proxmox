@@ -1,0 +1,23 @@
+# =============================================================================
+# Run a Proxmox plugin action on demand (manual trigger)
+# =============================================================================
+# A minimal pipeline that runs a single plugin action, driven by the settings
+# below. Trigger it manually from the Woodpecker UI. For more patterns
+# (multi-instance, VM-from-ISO, ephemeral CI env) see the examples/ directory.
+#
+# ── Secrets ───────────────────────────────────────────────────────────────
+#   PROXMOX_API_TOKEN   user@realm!id=secret
+# =============================================================================
+
+when:
+  - event: manual
+
+steps:
+  - name: proxmox
+    image: ghcr.io/kontangooss/proxmox:latest
+    settings:
+      action: lxc-list          # any action; e.g. lxc-create, vm-create, node-list
+      api_url: https://pve.example.com:8006
+      api_token:
+        from_secret: PROXMOX_API_TOKEN
+      node: pve

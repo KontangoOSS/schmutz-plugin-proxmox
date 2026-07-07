@@ -1,0 +1,46 @@
+---
+- name: Update package cache
+  ansible.builtin.apt:
+    update_cache: yes
+    cache_valid_time: 3600
+  when: ansible_os_family == "Debian"
+
+- name: Install base packages (Debian)
+  ansible.builtin.apt:
+    name: "{{ base_packages }}"
+    state: present
+  when: ansible_os_family == "Debian"
+
+- name: Install base packages (Alpine)
+  community.general.apk:
+    name: "{{ base_packages }}"
+    state: present
+  when: ansible_os_family == "Alpine"
+
+- name: Set timezone
+  community.general.timezone:
+    name: "{{ base_timezone }}"
+
+- name: Configure sysctl parameters
+  ansible.posix.sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    sysctl_set: yes
+    reload: yes
+  loop: "{{ base_sysctl | dict2items }}"
+  when: base_sysctl | length > 0
+
+- name: Configure DNS resolvers
+  ansible.builtin.template:
+    src: resolv.conf.j2
+    dest: /etc/resolv.conf
+    mode: "0644"
+  when: base_dns_servers | length > 0
+
+- name: Enable NTP
+  ansible.builtin.service:
+    name: "{{ 'chrony' if ansible_os_family == 'Debian' else 'chronyd' }}"
+    state: started
+    enabled: yes
+  when: base_ntp_enabled
+  ignore_errors: yes

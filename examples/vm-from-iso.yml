@@ -1,0 +1,36 @@
+# =============================================================================
+# EXAMPLE — Create a QEMU/KVM VM from an installer ISO
+# =============================================================================
+# Creates a VM with a pinned MAC (stable across rebuilds), a boot ISO, and a
+# virtio disk. The plugin verifies the ISO exists on the target node BEFORE
+# creating the VM, so a typo'd volid fails fast instead of leaving you with a
+# VM that boots to an empty CD drive.
+#
+# List available ISOs first with:  action: iso-list
+#
+# ── Secrets ───────────────────────────────────────────────────────────────
+#   PROXMOX_API_TOKEN   user@realm!id=secret
+# =============================================================================
+
+when:
+  - event: manual
+
+steps:
+  - name: create-vm
+    image: ghcr.io/kontangooss/proxmox:latest
+    settings:
+      action: vm-create
+      api_url: https://pve.example.com:8006
+      api_token:
+        from_secret: PROXMOX_API_TOKEN
+      node: pve
+
+      vm_name: build-runner
+      cores: 4
+      memory: 8192            # MB
+      storage: local-lvm
+      disk_size: 40           # GB (scsi0)
+      iso: "local:iso/debian-12.7.0-amd64-netinst.iso"   # checked to exist first
+      mac: "BC:24:11:00:00:10"                            # pin the NIC's MAC
+      bridge: vmbr0
+      start_on_create: "false"

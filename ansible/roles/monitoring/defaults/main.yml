@@ -1,0 +1,20 @@
+---
+# Monitoring role defaults
+
+# Node exporter (Prometheus)
+monitoring_node_exporter: true
+monitoring_node_exporter_version: "1.8.2"
+monitoring_node_exporter_port: 9100
+monitoring_node_exporter_user: node_exporter
+
+# Promtail (Loki log shipping)
+monitoring_promtail: false
+monitoring_promtail_version: "3.0.0"
+monitoring_loki_url: ""
+
+# Custom metric scripts
+monitoring_scripts: []
+
+# Health check endpoint
+monitoring_healthcheck: true
+monitoring_healthcheck_port: 9999

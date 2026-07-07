@@ -1,0 +1,20 @@
+[Unit]
+Description={{ app_name }}
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{ app_user }}
+{% if app_systemd_working_dir != "" %}
+WorkingDirectory={{ app_systemd_working_dir }}
+{% endif %}
+{% if app_systemd_env_file != "" %}
+EnvironmentFile={{ app_systemd_env_file }}
+{% endif %}
+ExecStart={{ app_systemd_exec }}
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

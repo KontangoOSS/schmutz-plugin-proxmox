@@ -1,0 +1,18 @@
+Port {{ harden_ssh_port }}
+Protocol 2
+PermitRootLogin {{ harden_ssh_permit_root }}
+PasswordAuthentication {{ 'yes' if harden_ssh_password_auth else 'no' }}
+PubkeyAuthentication yes
+MaxAuthTries {{ harden_ssh_max_auth_tries }}
+X11Forwarding no
+AllowTcpForwarding no
+AllowAgentForwarding no
+{% if harden_ssh_allowed_users | length > 0 %}
+AllowUsers {{ harden_ssh_allowed_users | join(' ') }}
+{% endif %}
+ClientAliveInterval 300
+ClientAliveCountMax 2
+LoginGraceTime 30
+MaxSessions 10
+UsePAM yes
+Subsystem sftp /usr/lib/openssh/sftp-server

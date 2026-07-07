@@ -1,0 +1,23 @@
+---
+# Docker role defaults
+docker_edition: ce
+docker_version: ""  # empty = latest
+docker_compose_install: true
+docker_users: []
+
+# Storage driver
+docker_storage_driver: overlay2
+
+# Daemon config
+docker_daemon_options:
+  log-driver: json-file
+  log-opts:
+    max-size: "10m"
+    max-file: "3"
+  storage-driver: "{{ docker_storage_driver }}"
+
+# Registry mirrors
+docker_registry_mirrors: []
+
+# Insecure registries (for private registries without TLS)
+docker_insecure_registries: []

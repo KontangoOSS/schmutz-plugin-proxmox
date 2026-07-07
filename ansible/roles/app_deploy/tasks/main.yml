@@ -1,0 +1,112 @@
+---
+- name: Create app directory
+  ansible.builtin.file:
+    path: "{{ app_dir }}"
+    state: directory
+    owner: "{{ app_user }}"
+    mode: "0755"
+
+- name: Docker registry login
+  community.docker.docker_login:
+    registry_url: "{{ app_registry_url }}"
+    username: "{{ app_registry_user }}"
+    password: "{{ app_registry_password }}"
+  when: app_registry_url != ""
+
+- name: Deploy with docker-compose
+  when: app_deploy_method == "docker-compose"
+  block:
+    - name: Copy compose file
+      ansible.builtin.copy:
+        src: "{{ app_compose_file }}"
+        dest: "{{ app_dir }}/docker-compose.yml"
+        mode: "0644"
+      when: app_compose_file != ""
+
+    - name: Write inline compose file
+      ansible.builtin.copy:
+        content: "{{ app_compose_inline }}"
+        dest: "{{ app_dir }}/docker-compose.yml"
+        mode: "0644"
+      when: app_compose_inline != ""
+
+    - name: Write .env file
+      ansible.builtin.template:
+        src: env.j2
+        dest: "{{ app_dir }}/.env"
+        mode: "0600"
+      when: app_compose_env | length > 0
+
+    - name: Pull images
+      ansible.builtin.command:
+        cmd: docker compose pull
+        chdir: "{{ app_dir }}"
+      when: app_compose_pull
+      changed_when: true
+
+    - name: Start services
+      ansible.builtin.command:
+        cmd: docker compose up -d --remove-orphans
+        chdir: "{{ app_dir }}"
+      changed_when: true
+
+- name: Deploy with docker run
+  when: app_deploy_method == "docker-run"
+  block:
+    - name: Pull image
+      community.docker.docker_image:
+        name: "{{ app_docker_image }}"
+        tag: "{{ app_docker_tag }}"
+        source: pull
+
+    - name: Run container
+      community.docker.docker_container:
+        name: "{{ app_name }}"
+        image: "{{ app_docker_image }}:{{ app_docker_tag }}"
+        state: started
+        restart_policy: "{{ app_docker_restart_policy }}"
+        ports: "{{ app_docker_ports }}"
+        volumes: "{{ app_docker_volumes }}"
+        env: "{{ app_docker_env }}"
+        network_mode: "{{ app_docker_network if app_docker_network != '' else omit }}"
+
+- name: Deploy with systemd
+  when: app_deploy_method == "systemd"
+  block:
+    - name: Install systemd service
+      ansible.builtin.template:
+        src: app.service.j2
+        dest: "/etc/systemd/system/{{ app_name }}.service"
+        mode: "0644"
+
+    - name: Enable and start service
+      ansible.builtin.systemd:
+        name: "{{ app_name }}"
+        state: restarted
+        enabled: yes
+        daemon_reload: yes
+
+- name: Deploy with script
+  when: app_deploy_method == "script"
+  block:
+    - name: Copy deploy script
+      ansible.builtin.copy:
+        src: "{{ app_deploy_script }}"
+        dest: "{{ app_dir }}/deploy.sh"
+        mode: "0755"
+
+    - name: Run deploy script
+      ansible.builtin.command:
+        cmd: "{{ app_dir }}/deploy.sh {{ app_deploy_script_args }}"
+        chdir: "{{ app_dir }}"
+      changed_when: true
+
+- name: Health check
+  ansible.builtin.uri:
+    url: "{{ app_healthcheck_url }}"
+    status_code: 200
+  register: healthcheck
+  retries: "{{ app_healthcheck_retries }}"
+  delay: "{{ app_healthcheck_delay }}"
+  until: healthcheck.status == 200
+  when: app_healthcheck_url != ""

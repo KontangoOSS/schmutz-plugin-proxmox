@@ -1,0 +1,28 @@
+---
+# Workflow: Deploy Application
+# Deploys an application to existing hosts using the app_deploy role.
+#
+# Usage:
+#   ansible-playbook playbooks/deploy-app.yml \
+#     -i proxmox.yml \
+#     -l webservers \
+#     -e app_name=myapp \
+#     -e app_deploy_method=docker-compose \
+#     -e app_compose_file=./docker-compose.yml
+
+- name: Deploy application
+  hosts: "{{ target_hosts | default('all') }}"
+  become: true
+  gather_facts: true
+  vars:
+    app_name: myapp
+    app_deploy_method: docker-compose
+
+  pre_tasks:
+    - name: Ensure Docker is installed
+      ansible.builtin.include_role:
+        name: docker
+      when: app_deploy_method in ['docker-compose', 'docker-run']
+
+  roles:
+    - role: app_deploy

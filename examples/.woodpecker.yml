@@ -1,0 +1,52 @@
+# =============================================================================
+# EXAMPLE — Provision an LXC container with the proxmox plugin
+# =============================================================================
+# Copy this into your repo as `.woodpecker.yml` and adjust the settings.
+# It creates (or no-ops if it already exists) a single LXC container, then
+# reports its VMID and IP as pipeline outputs.
+#
+# ── Secrets you must add in Woodpecker (Repo Settings → Secrets) ──────────
+#   PROXMOX_API_TOKEN   Proxmox API token in the form:  user@realm!tokenid=secret
+#                       e.g.  ci@pve!woodpecker=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxx
+#
+# ── What the plugin needs (see README for the full settings reference) ────
+#   action     the operation, here `lxc-create`
+#   api_url    base URL of your Proxmox, e.g. https://pve.example.com:8006
+#   api_token  the secret above
+#   node       the Proxmox node to create on, e.g. `pve`
+# =============================================================================
+
+when:
+  - event: manual              # trigger by hand from the Woodpecker UI
+  - event: push
+    branch: [main]
+
+steps:
+  - name: create-lxc
+    image: ghcr.io/kontangooss/proxmox:latest
+    settings:
+      action: lxc-create
+      api_url: https://pve.example.com:8006
+      api_token:
+        from_secret: PROXMOX_API_TOKEN
+      node: pve
+
+      # ── Guest spec ──────────────────────────────────────────────────
+      hostname: my-app
+      ostemplate: "local:vztmpl/debian-12-standard_12.12-1_amd64.tar.zst"
+      storage: local-lvm       # storage that holds the rootfs (rootdir content)
+      cores: 2
+      memory: 2048             # MB
+      swap: 512
+      rootfs_size: 10          # GB
+      network: "name=eth0,bridge=vmbr0,ip=dhcp"
+      unprivileged: "1"
+      features: "nesting=1"
+      start_on_create: "true"
+
+      # ── Optional: fully update the guest right after it boots ───────
+      # Requires ssh_host + ssh_key so the plugin can `pct exec` on the host.
+      # update_on_create: "true"
+      # ssh_host: pve.example.com
+      # ssh_key:
+      #   from_secret: PROXMOX_SSH_KEY

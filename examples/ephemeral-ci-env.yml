@@ -1,0 +1,47 @@
+# =============================================================================
+# EXAMPLE — Ephemeral test environment (create → use → tear down)
+# =============================================================================
+# A common CI pattern: spin up a throwaway container for a test run, then
+# destroy it. lxc-create auto-assigns a free VMID (via the cluster's next-id)
+# and writes it to $PROXMOX_VMID, which later steps reuse. lxc-destroy is
+# idempotent — destroying an id that no longer exists is a clean no-op, so the
+# teardown step is safe even if an earlier step failed.
+#
+# ── Secrets ───────────────────────────────────────────────────────────────
+#   PROXMOX_API_TOKEN   user@realm!id=secret
+# =============================================================================
+
+when:
+  - event: pull_request
+
+steps:
+  # 1. Create a throwaway container (VMID auto-assigned → $PROXMOX_VMID)
+  - name: spin-up
+    image: ghcr.io/kontangooss/proxmox:latest
+    settings:
+      action: lxc-create
+      api_url: https://pve.example.com:8006
+      api_token: {from_secret: PROXMOX_API_TOKEN}
+      node: pve
+      hostname: "ci-${CI_COMMIT_SHA}"
+      storage: local-lvm
+      ostemplate: "local:vztmpl/debian-12-standard_12.12-1_amd64.tar.zst"
+      cores: 2
+      memory: 2048
+      rootfs_size: 8
+      start_on_create: "true"
+
+  # 2. …run your tests here against the container's $PROXMOX_IP…
+
+  # 3. Always tear it down. `when: status: [success, failure]` guarantees the
+  #    teardown runs even if the test step above failed.
+  - name: tear-down
+    image: ghcr.io/kontangooss/proxmox:latest
+    when:
+      - status: [success, failure]
+    settings:
+      action: lxc-destroy
+      api_url: https://pve.example.com:8006
+      api_token: {from_secret: PROXMOX_API_TOKEN}
+      node: pve
+      vmid: "${PROXMOX_VMID}"     # from the spin-up step's output

@@ -1,0 +1,89 @@
+---
+# Workflow: Provision and Configure
+# Creates a container or VM, waits for it to come up, then runs configuration roles.
+#
+# Usage:
+#   ansible-playbook playbooks/provision-and-configure.yml \
+#     -e proxmox_api_url=https://pve:8006 \
+#     -e proxmox_api_token=root@pam!ci=secret \
+#     -e proxmox_node=pve \
+#     -e guest_type=lxc \
+#     -e vmid=200 \
+#     -e hostname=webserver \
+#     -e configure_roles='["base","docker","harden"]'
+
+- name: Provision guest on Proxmox
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    proxmox_api_url: "{{ lookup('env', 'PROXMOX_API_URL') | default('https://pve:8006', true) }}"
+    proxmox_api_token: "{{ lookup('env', 'PROXMOX_API_TOKEN') }}"
+    proxmox_node: "{{ lookup('env', 'PROXMOX_NODE') | default('pve', true) }}"
+    guest_type: lxc
+    vmid: ""
+    hostname: "new-guest"
+    memory: 2048
+    cores: 2
+    storage: "local-zfs"
+    start_on_create: true
+
+  tasks:
+    - name: Create LXC container
+      proxmox_lxc:
+        api_url: "{{ proxmox_api_url }}"
+        api_token: "{{ proxmox_api_token }}"
+        node: "{{ proxmox_node }}"
+        vmid: "{{ vmid | default(omit, true) }}"
+        hostname: "{{ hostname }}"
+        memory: "{{ memory }}"
+        cores: "{{ cores }}"
+        storage: "{{ storage }}"
+        start_on_create: "{{ start_on_create }}"
+        state: present
+      register: provision_result
+      when: guest_type == "lxc"
+
+    - name: Create QEMU VM
+      proxmox_vm:
+        api_url: "{{ proxmox_api_url }}"
+        api_token: "{{ proxmox_api_token }}"
+        node: "{{ proxmox_node }}"
+        vmid: "{{ vmid | default(omit, true) }}"
+        name: "{{ hostname }}"
+        memory: "{{ memory }}"
+        cores: "{{ cores }}"
+        storage: "{{ storage }}"
+        state: present
+      register: provision_result
+      when: guest_type == "qemu"
+
+    - name: Wait for guest to be reachable
+      ansible.builtin.wait_for:
+        host: "{{ hostname }}"
+        port: 22
+        delay: 10
+        timeout: 120
+      when: start_on_create | bool
+
+    - name: Add provisioned host to runtime inventory
+      ansible.builtin.add_host:
+        name: "{{ hostname }}"
+        groups: provisioned
+        proxmox_vmid: "{{ provision_result.vmid }}"
+        proxmox_node: "{{ proxmox_node }}"
+
+- name: Configure provisioned host
+  hosts: provisioned
+  become: true
+  gather_facts: true
+  vars:
+    configure_roles: ["base"]
+
+  tasks:
+    - name: Apply requested roles
+      ansible.builtin.include_role:
+        name: "{{ role_item }}"
+      loop: "{{ configure_roles }}"
+      loop_control:
+        loop_var: role_item

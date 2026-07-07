@@ -1,0 +1,10 @@
+[DEFAULT]
+bantime = {{ harden_fail2ban_bantime }}
+findtime = {{ harden_fail2ban_findtime }}
+maxretry = {{ harden_fail2ban_maxretry }}
+
+[sshd]
+enabled = true
+port = {{ harden_ssh_port }}
+filter = sshd
+logpath = /var/log/auth.log

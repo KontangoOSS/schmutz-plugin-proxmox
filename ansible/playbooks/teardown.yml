@@ -1,0 +1,76 @@
+---
+# Workflow: Teardown
+# Destroys one or more VMs/CTs. Supports bulk teardown by VMID list or inventory group.
+#
+# Usage (single):
+#   ansible-playbook playbooks/teardown.yml \
+#     -e proxmox_api_url=https://pve:8006 \
+#     -e proxmox_api_token=root@pam!ci=secret \
+#     -e proxmox_node=pve \
+#     -e vmids=200
+#
+# Usage (bulk):
+#   ansible-playbook playbooks/teardown.yml \
+#     -e vmids=200,201,202
+
+- name: Teardown Proxmox guests
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    proxmox_api_url: "{{ lookup('env', 'PROXMOX_API_URL') }}"
+    proxmox_api_token: "{{ lookup('env', 'PROXMOX_API_TOKEN') }}"
+    proxmox_node: "{{ lookup('env', 'PROXMOX_NODE') | default('pve', true) }}"
+    vmids: ""
+    create_snapshot_before: false
+    snapshot_name: "pre-teardown"
+
+  tasks:
+    - name: Validate required variables
+      ansible.builtin.assert:
+        that:
+          - vmids != ""
+        fail_msg: "vmids is required (comma-separated list)"
+
+    - name: Parse VMID list
+      ansible.builtin.set_fact:
+        vmid_list: "{{ vmids.split(',') | map('trim') | list }}"
+
+    - name: Create safety snapshots
+      proxmox_snapshot:
+        api_url: "{{ proxmox_api_url }}"
+        api_token: "{{ proxmox_api_token }}"
+        node: "{{ proxmox_node }}"
+        vmid: "{{ item }}"
+        snapshot_name: "{{ snapshot_name }}"
+        description: "Safety snapshot before teardown"
+        state: present
+      loop: "{{ vmid_list }}"
+      when: create_snapshot_before | bool
+      ignore_errors: yes
+
+    - name: Destroy LXC containers
+      proxmox_lxc:
+        api_url: "{{ proxmox_api_url }}"
+        api_token: "{{ proxmox_api_token }}"
+        node: "{{ proxmox_node }}"
+        vmid: "{{ item }}"
+        state: absent
+      loop: "{{ vmid_list }}"
+      register: lxc_results
+      ignore_errors: yes
+
+    - name: Destroy QEMU VMs (for any that weren't LXC)
+      proxmox_vm:
+        api_url: "{{ proxmox_api_url }}"
+        api_token: "{{ proxmox_api_token }}"
+        node: "{{ proxmox_node }}"
+        vmid: "{{ item.item }}"
+        state: absent
+      loop: "{{ lxc_results.results }}"
+      when: item is failed
+      ignore_errors: yes
+
+    - name: Report teardown results
+      ansible.builtin.debug:
+        msg: "Teardown complete for VMIDs: {{ vmids }}"

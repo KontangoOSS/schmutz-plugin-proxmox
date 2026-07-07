@@ -1,0 +1,156 @@
+{
+  "name": "proxmox",
+  "version": "4.0.0",
+  "description": "Manage Proxmox VE infrastructure from Woodpecker CI — LXC, QEMU, storage, networking, snapshots, backups, HA, Ceph, Ansible workflows, and more.",
+  "author": "Kontango",
+  "license": "MIT",
+  "repository": "https://github.com/KontangoOSS/proxmox",
+  "image": "ghcr.io/kontangooss/proxmox",
+  "tags": ["proxmox", "virtualization", "infrastructure", "lxc", "qemu", "containers"],
+  "settings": {
+    "required": {
+      "action": {
+        "type": "string",
+        "description": "The action to perform (e.g. lxc-create, vm-list, snapshot-create)"
+      },
+      "api_url": {
+        "type": "string",
+        "description": "Proxmox API URL (e.g. https://pve.example.com:8006)"
+      },
+      "api_token": {
+        "type": "secret",
+        "description": "PVE API token (user@realm!tokenid=secret)"
+      },
+      "node": {
+        "type": "string",
+        "description": "Proxmox node name"
+      }
+    },
+    "optional": {
+      "auth_mode": {
+        "type": "string",
+        "default": "pve",
+        "description": "Authentication mode (pve, bearer, api_key, basic, none)"
+      },
+      "skip_verify": {
+        "type": "boolean",
+        "default": true,
+        "description": "Skip TLS certificate verification"
+      },
+      "debug": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable debug logging"
+      },
+      "timeout": {
+        "type": "integer",
+        "default": 120,
+        "description": "Task polling timeout in seconds"
+      },
+      "retry_max": {
+        "type": "integer",
+        "default": 3,
+        "description": "Maximum HTTP retry attempts"
+      },
+      "retry_delay": {
+        "type": "integer",
+        "default": 2,
+        "description": "Delay between retries in seconds"
+      },
+      "http_timeout": {
+        "type": "integer",
+        "default": 30,
+        "description": "HTTP connection timeout in seconds"
+      }
+    }
+  },
+  "actions": {
+    "containers": [
+      "lxc-list", "lxc-get", "lxc-create", "lxc-destroy",
+      "lxc-start", "lxc-stop", "lxc-restart",
+      "lxc-status", "lxc-resize", "lxc-interfaces", "lxc-exec"
+    ],
+    "vms": [
+      "vm-list", "vm-get", "vm-create", "vm-destroy",
+      "vm-start", "vm-stop", "vm-restart"
+    ],
+    "snapshots": [
+      "snapshot-create", "snapshot-list", "snapshot-rollback", "snapshot-delete"
+    ],
+    "backups": [
+      "backup-create", "backup-list"
+    ],
+    "clone_migrate": [
+      "clone", "migrate"
+    ],
+    "nodes": [
+      "node-list", "node-status", "next-vmid"
+    ],
+    "cluster": [
+      "cluster-status", "cluster-resources"
+    ],
+    "storage": [
+      "storage-list", "storage-create", "storage-delete",
+      "volume-list", "template-list", "template-download", "template-create",
+      "iso-list", "iso-upload", "disk-import"
+    ],
+    "networking": [
+      "network-list", "network-reload",
+      "bridge-create", "bridge-delete", "vlan-create",
+      "sdn-zone-list", "sdn-zone-create",
+      "sdn-vnet-create", "sdn-subnet-create"
+    ],
+    "firewall": [
+      "firewall-rules", "firewall-add", "firewall-delete", "firewall-options"
+    ],
+    "access": [
+      "user-list", "user-create",
+      "token-list", "token-create",
+      "acl-list", "acl-set", "role-list"
+    ],
+    "pools": [
+      "pool-list", "pool-create", "pool-delete", "pool-add-member"
+    ],
+    "ha": [
+      "ha-group-list", "ha-group-create", "ha-resource-add", "ha-status"
+    ],
+    "disks": [
+      "vm-disk-add", "vm-disk-resize", "vm-disk-move",
+      "pci-list", "pci-passthrough"
+    ],
+    "cloud_init": [
+      "cloud-init-set", "cloud-init-dump"
+    ],
+    "certificates": [
+      "cert-list", "cert-upload", "acme-setup"
+    ],
+    "replication": [
+      "replication-list", "replication-create", "replication-status"
+    ],
+    "ceph": [
+      "ceph-status", "ceph-pool-list", "ceph-pool-create", "ceph-osd-create"
+    ],
+    "bulk": [
+      "bulk-start", "bulk-stop", "bulk-snapshot", "bulk-backup"
+    ],
+    "tasks": [
+      "task-list", "task-log"
+    ],
+    "console": [
+      "vnc-url", "spice-config"
+    ],
+    "metrics": [
+      "metrics-server-create", "metrics-server-list"
+    ],
+    "workflows": [
+      "workflow-provision", "workflow-deploy", "workflow-safe-deploy",
+      "workflow-clone", "workflow-teardown", "ansible-run"
+    ]
+  },
+  "ansible": {
+    "roles": ["base", "docker", "harden", "monitoring", "user_setup", "app_deploy"],
+    "modules": ["proxmox_lxc", "proxmox_vm", "proxmox_snapshot", "proxmox_clone", "proxmox_cloudinit", "proxmox_firewall"],
+    "inventory": "proxmox_inventory",
+    "playbooks": ["provision-and-configure", "deploy-app", "safe-deploy", "clone-environment", "teardown"]
+  }
+}

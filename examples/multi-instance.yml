@@ -1,0 +1,49 @@
+# =============================================================================
+# EXAMPLE — Provision onto MULTIPLE Proxmox instances from one pipeline
+# =============================================================================
+# The plugin is instance-agnostic: it talks to whatever Proxmox you point it
+# at via three inputs — api_url, api_token, node. "Multiple instances" is
+# therefore just "one step per instance," each with its own secret.
+#
+# This deploys the SAME container spec onto two independent Proxmox instances
+# (they need not be in the same cluster). The steps run in parallel and are
+# fully independent — one failing does not roll back the other.
+#
+# ── Secrets ───────────────────────────────────────────────────────────────
+#   DC1_API_TOKEN   token for instance 1  (user@realm!id=secret)
+#   DC2_API_TOKEN   token for instance 2
+# =============================================================================
+
+when:
+  - event: manual
+
+# Shared guest spec, referenced by both steps via a YAML anchor.
+variables:
+  - &spec
+      action: lxc-create
+      hostname: edge-cache
+      ostemplate: "local:vztmpl/debian-12-standard_12.12-1_amd64.tar.zst"
+      storage: local-lvm
+      cores: 2
+      memory: 2048
+      rootfs_size: 10
+      start_on_create: "true"
+
+steps:
+  - name: deploy-dc1
+    image: ghcr.io/kontangooss/proxmox:latest
+    settings:
+      <<: *spec
+      api_url: https://pve-dc1.example.com:8006
+      node: pve
+      api_token:
+        from_secret: DC1_API_TOKEN
+
+  - name: deploy-dc2
+    image: ghcr.io/kontangooss/proxmox:latest
+    settings:
+      <<: *spec
+      api_url: https://pve-dc2.example.com:8006
+      node: pve
+      api_token:
+        from_secret: DC2_API_TOKEN

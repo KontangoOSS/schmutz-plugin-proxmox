@@ -1,0 +1,45 @@
+---
+# App deploy role defaults
+
+# Deployment method: docker-compose, docker-run, systemd, or script
+app_deploy_method: docker-compose
+
+# Application
+app_name: myapp
+app_user: root
+app_dir: "/opt/{{ app_name }}"
+
+# Docker compose
+app_compose_file: ""  # path to compose file to copy, or inline content
+app_compose_inline: ""
+app_compose_env: {}
+app_compose_pull: true
+
+# Docker run (single container)
+app_docker_image: ""
+app_docker_tag: latest
+app_docker_ports: []
+app_docker_volumes: []
+app_docker_env: {}
+app_docker_restart_policy: unless-stopped
+app_docker_network: ""
+app_docker_extra_args: ""
+
+# Systemd service
+app_systemd_exec: ""
+app_systemd_working_dir: ""
+app_systemd_env_file: ""
+
+# Script deployment
+app_deploy_script: ""
+app_deploy_script_args: ""
+
+# Registry auth (for private images)
+app_registry_url: ""
+app_registry_user: ""
+app_registry_password: ""
+
+# Health check
+app_healthcheck_url: ""
+app_healthcheck_retries: 30
+app_healthcheck_delay: 5

@@ -1,0 +1,22 @@
+---
+# User setup role defaults
+
+users: []
+# users:
+#   - name: deploy
+#     groups: [sudo, docker]
+#     shell: /bin/bash
+#     ssh_keys:
+#       - "ssh-ed25519 AAAA..."
+#     sudo_nopasswd: true
+#   - name: app
+#     system: true
+#     shell: /usr/sbin/nologin
+
+# Remove default users
+user_setup_remove_users: []
+
+# Password policy
+user_setup_password_max_days: 90
+user_setup_password_min_days: 1
+user_setup_password_warn_days: 7

@@ -2,7 +2,7 @@
 
 Manage Proxmox VE infrastructure from Woodpecker CI pipelines. 94 actions covering LXC containers, QEMU VMs, storage, networking, snapshots, backups, HA, Ceph, and more. Ships with Ansible roles, modules, and workflow playbooks for end-to-end provisioning and configuration management.
 
-Built and maintained by the team at [Kontango](https://kontango.net).
+Built and maintained by the team at [Kontango](https://kontango.net). Part of the [schmutz-plugins](https://github.com/KontangoOSS/schmutz-plugins) collection.
 
 - **Requirements & setup** (Proxmox token, privileges, network): [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md)
 - **Runnable pipeline examples**: [examples/](examples/) — single LXC, multi-instance, VM-from-ISO, ephemeral CI env
